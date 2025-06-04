@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -93,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mengambil data kurs: $e')),
       );
@@ -352,8 +355,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/');
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('logged_in_username');
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/');
+              }
             },
           )
         ],
@@ -575,12 +582,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Konversi\nWaktu',
                               Icons.access_time,
                               '/time',
-                            ),
-                            _buildToolButton(
-                              context,
-                              'LBS\nTracker',
-                              Icons.location_on,
-                              '/lbs',
                             ),
                           ],
                         ),

@@ -24,6 +24,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
         convertedResult = amount * rate;
       });
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal mengambil data kurs')));
     }
   }
@@ -42,7 +43,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
             ),
             DropdownButton<String>(
               value: fromCurrency,
-              items: ['USD', 'IDR', 'EUR'].map((e) => DropdownMenuItem(child: Text(e), value: e)).toList(),
+              items: ['USD', 'IDR', 'EUR'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (val) {
                 setState(() {
                   fromCurrency = val!;
@@ -51,7 +52,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
             ),
             DropdownButton<String>(
               value: toCurrency,
-              items: ['USD', 'IDR', 'EUR'].map((e) => DropdownMenuItem(child: Text(e), value: e)).toList(),
+              items: ['USD', 'IDR', 'EUR'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (val) {
                 setState(() {
                   toCurrency = val!;

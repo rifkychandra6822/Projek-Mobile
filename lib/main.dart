@@ -6,7 +6,6 @@ import 'screens/time_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/gold_calculator_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/lbs_tracker_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,23 +19,23 @@ class MyApp extends StatelessWidget {
       title: 'Aplikasi Harga Emas',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: Color(0xFFD4AF37), // Gold color
-        colorScheme: ColorScheme.light(
+        primaryColor: const Color(0xFFD4AF37), // Gold color
+        colorScheme: const ColorScheme.light(
           primary: Color(0xFFD4AF37),
           secondary: Color(0xFFB8860B),
           surface: Colors.white,
-          background: Color(0xFFFFFAF0),
+          // background: Color(0xFFFFFAF0), // background is deprecated, use surface instead
         ),
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFD4AF37),
           foregroundColor: Colors.white,
           elevation: 0,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFFD4AF37),
+            backgroundColor: const Color(0xFFD4AF37),
             foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -48,7 +47,7 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        scaffoldBackgroundColor: Color(0xFFFFFAF0), // Floral white
+        scaffoldBackgroundColor: const Color(0xFFFFFAF0), // Floral white
       ),
       initialRoute: '/',
       routes: {
@@ -59,7 +58,6 @@ class MyApp extends StatelessWidget {
         '/currency': (context) => CurrencyScreen(),
         '/calculator': (context) => GoldCalculatorScreen(),
         '/profile': (context) => ProfileScreen(),
-        '/lbs': (context) => LBSTrackerScreen(),
       },
     );
   }

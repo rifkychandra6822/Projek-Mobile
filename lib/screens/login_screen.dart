@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../utils/hash_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = passwordCtrl.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Username dan password harus diisi')),
       );
@@ -33,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final user = await DatabaseHelper.instance.getUser(username);
 
     if (user == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User tidak ditemukan. Silakan daftar dulu.')),
       );
@@ -43,14 +46,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final hashedInput = HashUtil.hashPassword(password);
 
     if (user['password'] == hashedInput) {
+      // Save logged in user data
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('logged_in_username', username);
+      
       // Login sukses
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password salah')),
       );
     }
 
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
@@ -68,34 +78,39 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
               controller: usernameCtrl,
-              decoration: const InputDecoration(labelText: 'Username'),
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                border: OutlineInputBorder(),
+              ),
             ),
+            const SizedBox(height: 16),
             TextField(
               controller: passwordCtrl,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
               obscureText: true,
             ),
-            const SizedBox(height: 20),
-            isLoading
-                ? const CircularProgressIndicator()
-                : Column(
-                    children: [
-                      ElevatedButton(
-                        onPressed: login,
-                        child: const Text('Login'),
-                      ),
-                      const SizedBox(height: 10),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/register');
-                        },
-                        child: const Text('Belum punya akun? Daftar di sini'),
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      onPressed: login,
+                      child: const Text('Login'),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/register'),
+              child: const Text('Belum punya akun? Daftar'),
+            ),
           ],
         ),
       ),

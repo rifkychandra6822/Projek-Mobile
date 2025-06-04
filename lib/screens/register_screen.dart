@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final confirmPassword = confirmPasswordCtrl.text.trim();
 
     if (username.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Semua field harus diisi')),
       );
@@ -28,6 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (password != confirmPassword) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password dan konfirmasi tidak sama')),
       );
@@ -40,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final existingUser = await DatabaseHelper.instance.getUser(username);
     if (existingUser != null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Username sudah terdaftar')),
       );
@@ -60,6 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       isLoading = false;
     });
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Registrasi berhasil! Silakan login.')),
     );

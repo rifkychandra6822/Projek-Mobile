@@ -1,35 +1,28 @@
 class GoldPrice {
-  final int? id;
+  final double sell;
+  final double buy;
   final String type;
-  final double buyPrice;
-  final double sellPrice;
-  final DateTime date;
+  final String? info;
+  final String? weight;
+  final String unit;
 
   GoldPrice({
-    this.id,
+    required this.sell,
+    required this.buy,
     required this.type,
-    required this.buyPrice,
-    required this.sellPrice,
-    DateTime? date,
-  }) : date = date ?? DateTime.now();
+    this.info,
+    this.weight,
+    required this.unit,
+  });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'type': type,
-      'buy_price': buyPrice,
-      'sell_price': sellPrice,
-      'date': date.toIso8601String(),
-    };
-  }
-
-  factory GoldPrice.fromMap(Map<String, dynamic> map) {
+  factory GoldPrice.fromJson(Map<String, dynamic> json) {
     return GoldPrice(
-      id: map['id'],
-      type: map['type'],
-      buyPrice: map['buy_price'],
-      sellPrice: map['sell_price'],
-      date: DateTime.parse(map['date']),
+      sell: json['sell'].toDouble(),
+      buy: json['buy'].toDouble(),
+      type: json['type'],
+      info: json['info'],
+      weight: json['weight'],
+      unit: json['unit'],
     );
   }
 } 

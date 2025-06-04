@@ -7,7 +7,6 @@ class ApiService {
     final response = await http.get(Uri.parse(anekaLogamApiUrl));
     if (response.statusCode == 200) {
       final Map<String, dynamic> json = jsonDecode(response.body);
-      print('RESP API DATA: $json'); 
       return json['data'] ?? [];
     } else {
       throw Exception('Gagal mengambil data harga logam');
