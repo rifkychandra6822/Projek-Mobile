@@ -4,7 +4,6 @@ import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/time_screen.dart';
 import 'screens/currency_screen.dart';
-import 'screens/gold_calculator_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/lbs_tracker_screen.dart';
 
@@ -57,7 +56,6 @@ class MyApp extends StatelessWidget {
         '/home': (context) => HomeScreen(),
         '/time': (context) => TimeScreen(),
         '/currency': (context) => CurrencyScreen(),
-        '/calculator': (context) => GoldCalculatorScreen(),
         '/profile': (context) => ProfileScreen(),
         '/lbs': (context) => LBSTrackerScreen(),
       },

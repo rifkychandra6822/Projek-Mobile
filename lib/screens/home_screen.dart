@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../services/gold_price_api_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -9,48 +10,72 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ApiService apiService = ApiService();
+  final GoldPriceApiService apiService = GoldPriceApiService();
+  Timer? _debounceTimer;
 
   // Calculator state
   String priceType = 'buy';
-  double? selectedPrice;
+  num? selectedPrice;
   final TextEditingController quantityController = TextEditingController();
   final List<int> quantities = [1, 2, 3, 5, 10, 25, 50, 100];
   int? selectedQuantity;
-  double? totalPrice;
+  num? totalPrice;
 
   // Currency conversion
   String targetCurrency = 'IDR';
   final List<String> currencies = ['IDR', 'USD', 'EUR', 'SGD', 'MYR'];
-  double exchangeRate = 1.0;
-  double? convertedTotalPrice;
+  num exchangeRate = 1.0;
+  num? convertedTotalPrice;
 
   @override
   void initState() {
     super.initState();
-    quantityController.addListener(calculateTotal);
+    quantityController.addListener(_onQuantityChanged);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     quantityController.dispose();
     super.dispose();
+  }
+
+  void _onQuantityChanged() {
+    if (quantityController.text.isEmpty) {
+      setState(() {
+        totalPrice = null;
+        convertedTotalPrice = null;
+      });
+      return;
+    }
+
+    // Cancel previous timer if it exists
+    _debounceTimer?.cancel();
+    // Start a new timer
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return; // Check if widget is still mounted
+      calculateTotal();
+    });
   }
 
   void calculateTotal() {
     if (selectedPrice == null) return;
 
-    double? quantity;
+    num? quantity;
     if (selectedQuantity != null) {
       quantity = selectedQuantity!.toDouble();
     } else {
-      quantity = double.tryParse(quantityController.text);
+      quantity = num.tryParse(quantityController.text);
     }
 
     setState(() {
       if (quantity != null && quantity > 0) {
         totalPrice = selectedPrice! * quantity;
-        calculateConvertedPrice();
+        if (targetCurrency != 'IDR') {
+          fetchExchangeRate();
+        } else {
+          calculateConvertedPrice();
+        }
       } else {
         totalPrice = null;
         convertedTotalPrice = null;
@@ -88,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          exchangeRate = data['rates'][targetCurrency];
+          exchangeRate = data['rates'][targetCurrency] ?? 1.0;
           calculateConvertedPrice();
         });
       }
@@ -118,19 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Helper function to calculate price statistics
-  Map<String, double?> calculateStats(List<dynamic> prices) {
-    List<double> buyPrices = [];
-    List<double> sellPrices = [];
+  Map<String, num?> calculateStats(List<dynamic> prices) {
+    List<num> buyPrices = [];
+    List<num> sellPrices = [];
 
     for (var item in prices) {
-      if (item['buy'] != null) buyPrices.add(double.tryParse(item['buy'].toString()) ?? 0);
-      if (item['sell'] != null) sellPrices.add(double.tryParse(item['sell'].toString()) ?? 0);
+      if (item['buy'] != null) buyPrices.add(num.tryParse(item['buy'].toString()) ?? 0);
+      if (item['sell'] != null) sellPrices.add(num.tryParse(item['sell'].toString()) ?? 0);
     }
 
-    double? minBuy = buyPrices.isNotEmpty ? buyPrices.reduce((a, b) => a < b ? a : b) : null;
-    double? maxBuy = buyPrices.isNotEmpty ? buyPrices.reduce((a, b) => a > b ? a : b) : null;
-    double? minSell = sellPrices.isNotEmpty ? sellPrices.reduce((a, b) => a < b ? a : b) : null;
-    double? maxSell = sellPrices.isNotEmpty ? sellPrices.reduce((a, b) => a > b ? a : b) : null;
+    num? minBuy = buyPrices.isNotEmpty ? buyPrices.reduce((a, b) => a < b ? a : b) : null;
+    num? maxBuy = buyPrices.isNotEmpty ? buyPrices.reduce((a, b) => a > b ? a : b) : null;
+    num? minSell = sellPrices.isNotEmpty ? sellPrices.reduce((a, b) => a < b ? a : b) : null;
+    num? maxSell = sellPrices.isNotEmpty ? sellPrices.reduce((a, b) => a > b ? a : b) : null;
 
     return {
       'minBuy': minBuy,
@@ -147,12 +172,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Colors.white;
   }
 
-  Widget buildStatsCard(String title, double? value) {
+  Widget buildStatsCard(String title, num? value) {
     return Expanded(
       child: Card(
-        color: Color(0xFFFFF8DC),
+        color: const Color(0xFFFFF8DC),
         elevation: 4,
-        margin: const EdgeInsets.all(4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           child: Column(
@@ -161,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF8B4513), // Saddle brown
+                  color: Color(0xFF8B4513),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -173,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFD4AF37), // Gold
+                  color: Color(0xFFD4AF37),
                 ),
               ),
             ],
@@ -187,19 +212,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: const Color(0xFFFFF8DC),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Kalkulator Emas',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF8B4513),
-              ),
+            Row(
+              children: [
+                Icon(Icons.calculate, color: Colors.amber[800], size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Kalkulator Emas',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8B4513),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Row(
@@ -209,9 +241,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: const Text('Harga Beli'),
                     value: 'buy',
                     groupValue: priceType,
+                    activeColor: Colors.amber[800],
                     onChanged: (val) {
                       onPriceTypeChanged(val);
-                      selectedPrice = double.tryParse(goldPrice['buy'].toString());
+                      selectedPrice = num.tryParse(goldPrice['buy'].toString());
                       calculateTotal();
                     },
                   ),
@@ -221,9 +254,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: const Text('Harga Jual'),
                     value: 'sell',
                     groupValue: priceType,
+                    activeColor: Colors.amber[800],
                     onChanged: (val) {
                       onPriceTypeChanged(val);
-                      selectedPrice = double.tryParse(goldPrice['sell'].toString());
+                      selectedPrice = num.tryParse(goldPrice['sell'].toString());
                       calculateTotal();
                     },
                   ),
@@ -245,9 +279,15 @@ class _HomeScreenState extends State<HomeScreen> {
               runSpacing: 8,
               children: quantities.map((qty) {
                 return ChoiceChip(
-                  label: Text('$qty gram'),
+                  label: Text(
+                    '$qty gram',
+                    style: TextStyle(
+                      color: selectedQuantity == qty ? Colors.white : Colors.amber[800],
+                    ),
+                  ),
                   selected: selectedQuantity == qty,
-                  selectedColor: Colors.amber.shade300,
+                  selectedColor: Colors.amber[800],
+                  backgroundColor: const Color(0xFFFFF8DC),
                   onSelected: (_) => onChipSelected(qty),
                 );
               }).toList(),
@@ -256,18 +296,29 @@ class _HomeScreenState extends State<HomeScreen> {
             TextField(
               controller: quantityController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Atau masukkan kuantitas gram',
-                border: OutlineInputBorder(),
-                hintText: 'Masukkan kuantitas',
+                labelStyle: TextStyle(color: Colors.amber[800]),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.amber[800]!),
+                ),
+                prefixIcon: Icon(Icons.scale, color: Colors.amber[800]),
               ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: targetCurrency,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Pilih mata uang',
-                border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.amber[800]),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.amber[800]!),
+                ),
+                prefixIcon: Icon(Icons.currency_exchange, color: Colors.amber[800]),
               ),
               items: currencies.map((currency) {
                 return DropdownMenuItem(
@@ -279,22 +330,54 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
             Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Total Harga (IDR):\nRp ${totalPrice?.toStringAsFixed(0) ?? '-'}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  if (targetCurrency != 'IDR' && convertedTotalPrice != null) ...[
-                    const SizedBox(height: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFD4AF37)),
+                ),
+                child: Column(
+                  children: [
                     Text(
-                      'Total Harga ($targetCurrency):\n${convertedTotalPrice!.toStringAsFixed(2)} $targetCurrency',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      'Total Harga (IDR)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.amber[800],
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Rp ${totalPrice?.toStringAsFixed(0) ?? '-'}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                      ),
+                    ),
+                    if (targetCurrency != 'IDR' && convertedTotalPrice != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Total Harga ($targetCurrency)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.amber[800],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${convertedTotalPrice!.toStringAsFixed(2)} $targetCurrency',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFD4AF37),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -308,11 +391,11 @@ class _HomeScreenState extends State<HomeScreen> {
       onPressed: () => Navigator.pushNamed(context, route),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        foregroundColor: Color(0xFFD4AF37),
-        elevation: 2,
-        side: BorderSide(color: Color(0xFFD4AF37)),
-        padding: EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        foregroundColor: Colors.amber[800],
+        elevation: 4,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        side: BorderSide(color: Colors.amber[800]!),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -322,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -332,26 +415,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'Toko Emas Mulia',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'LogamKu',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
+        backgroundColor: Colors.amber[800],
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
               Navigator.pushReplacementNamed(context, '/home');
             },
           ),
           IconButton(
-            icon: const Icon(Icons.person),
+            icon: const Icon(Icons.person, color: Colors.white),
             onPressed: () {
               Navigator.pushNamed(context, '/profile');
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               Navigator.pushReplacementNamed(context, '/');
             },
@@ -359,62 +445,76 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: FutureBuilder<List<dynamic>>(
-        future: apiService.fetchAnekaLogamPrices(),
+        future: apiService.fetchGoldPrices(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(
-              color: Color(0xFFD4AF37),
-            ));
+            return Center(
+              child: CircularProgressIndicator(
+                color: Colors.amber[800],
+              ),
+            );
           } else if (snapshot.hasError) {
-            return Center(child: Text(
-              'Gagal memuat data: ${snapshot.error}',
-              style: TextStyle(color: Colors.red[700]),
-            ));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red[700]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Gagal memuat data: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red[700]),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Data tidak tersedia'));
+            return const Center(
+              child: Text(
+                'Data tidak tersedia',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
           }
 
           final prices = snapshot.data!;
           final stats = calculateStats(prices);
           
           if (selectedPrice == null && prices.isNotEmpty) {
-            selectedPrice = double.tryParse(prices[0][priceType].toString());
+            selectedPrice = num.tryParse(prices[0][priceType].toString());
           }
 
           return RefreshIndicator(
-            color: Color(0xFFD4AF37),
+            color: Colors.amber[800],
             onRefresh: () async {
               Navigator.pushReplacementNamed(context, '/home');
             },
             child: ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               children: [
                 // Header section with icon
-                Center(
-                  child: Icon(
-                    Icons.diamond,
-                    size: 48,
-                    color: Color(0xFFD4AF37),
-                  ),
+                Icon(
+                  Icons.diamond,
+                  size: 64,
+                  color: Colors.amber[800],
                 ),
                 const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'Harga Logam Mulia Hari Ini',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF8B4513),
-                    ),
+                Text(
+                  'Harga Logam Mulia Hari Ini',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber[800],
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // Stats cards
                 Card(
                   elevation: 4,
                   margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
@@ -430,12 +530,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Price list cards
                 ...prices.map((item) {
-                  final color = getCardColor(item['name'] ?? '');
                   return Card(
-                    color: color,
+                    color: const Color(0xFFFFF8DC),
                     elevation: 4,
                     margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -445,17 +544,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Icon(
                                 Icons.diamond,
-                                color: Color(0xFFD4AF37),
+                                color: Colors.amber[800],
                                 size: 24,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   item['name'] ?? 'EMAS ANTAM',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF8B4513),
+                                    color: Colors.amber[800],
                                   ),
                                 ),
                               ),
@@ -465,65 +564,63 @@ class _HomeScreenState extends State<HomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Harga Beli',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF8B4513),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Harga Beli',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF8B4513),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item['buy'] != null
-                                        ? 'Rp ${item['buy'].toString()}'
-                                        : '-',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item['buy'] != null
+                                          ? 'Rp ${item['buy'].toString()}'
+                                          : '-',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Color(0xFFD4AF37),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Harga Jual',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF8B4513),
+                              Container(
+                                height: 40,
+                                width: 1,
+                                color: Colors.amber[100],
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      'Harga Jual',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF8B4513),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item['sell'] != null
-                                        ? 'Rp ${item['sell'].toString()}'
-                                        : '-',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFFD4AF37),
-                                      fontWeight: FontWeight.bold,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item['sell'] != null
+                                          ? 'Rp ${item['sell'].toString()}'
+                                          : '-',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Color(0xFFD4AF37),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                          if (item['date'] != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'Update: ${item['date']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ]
                         ],
                       ),
                     ),
@@ -532,64 +629,76 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 24),
 
-                // Calculator section
-                if (prices.isNotEmpty) buildCalculator(prices[0]),
+                // Calculator
+                buildCalculator(prices[0]),
 
                 const SizedBox(height: 24),
 
                 // Tools section
-                Card(
-                  elevation: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Alat Bantu',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF8B4513),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 1.1,
-                          children: [
-                            _buildToolButton(
-                              context,
-                              'Konversi\nMata Uang',
-                              Icons.currency_exchange,
-                              '/currency',
-                            ),
-                            _buildToolButton(
-                              context,
-                              'Konversi\nWaktu',
-                              Icons.access_time,
-                              '/time',
-                            ),
-                            _buildToolButton(
-                              context,
-                              'LBS\nTracker',
-                              Icons.location_on,
-                              '/lbs',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                Text(
+                  'Tools',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber[800],
                   ),
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildToolButton(
+                        context,
+                        'Konversi\nMata Uang',
+                        Icons.currency_exchange,
+                        '/currency',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildToolButton(
+                        context,
+                        'Konversi\nWaktu',
+                        Icons.access_time,
+                        '/time',
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildToolButton(
+                        context,
+                        'Lokasi\nToko',
+                        Icons.location_on,
+                        '/lbs',
+                      ),
+                    ),
+                  ],
+                ),
 
-                const SizedBox(height: 20),
+                // Footer section
+                const SizedBox(height: 40),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.amber[100]!,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    'Mobile Programming Project by Rifky Chandra Nugraha\nUPN "Veteran" Yogyakarta.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           );

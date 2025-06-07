@@ -78,33 +78,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrasi')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: usernameCtrl,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            TextField(
-              controller: passwordCtrl,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            TextField(
-              controller: confirmPasswordCtrl,
-              decoration: const InputDecoration(labelText: 'Konfirmasi Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: register,
-                    child: const Text('Daftar'),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.person_add_alt_1, size: 80, color: Colors.amber),
+                const SizedBox(height: 24),
+                Text('Buat Akun Baru',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                const SizedBox(height: 8),
+                Text('Isi data di bawah untuk mendaftar',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.black54)),
+                const SizedBox(height: 32),
+                TextField(
+                  controller: usernameCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-          ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Konfirmasi Password',
+                    prefixIcon: Icon(Icons.lock_reset),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 24),
+                isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber[800],
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        onPressed: register,
+                        child: const Text('Daftar', style: TextStyle(fontSize: 18, color: Colors.white)),
+                      ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Sudah punya akun? Login di sini'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

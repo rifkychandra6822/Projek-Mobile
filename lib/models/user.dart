@@ -3,6 +3,9 @@ class User {
   final String username;
   final String password;
   final String? email;
+  final String? nim;
+  final String? kesanPesan;
+  final String? profilePicture;
   final DateTime createdAt;
 
   User({
@@ -10,6 +13,9 @@ class User {
     required this.username,
     required this.password,
     this.email,
+    this.nim,
+    this.kesanPesan,
+    this.profilePicture,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -19,6 +25,9 @@ class User {
       'username': username,
       'password': password,
       'email': email,
+      'nim': nim,
+      'kesan_pesan': kesanPesan,
+      'profile_picture': profilePicture,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -29,7 +38,12 @@ class User {
       username: map['username'],
       password: map['password'],
       email: map['email'],
-      createdAt: DateTime.parse(map['created_at']),
+      nim: map['nim'],
+      kesanPesan: map['kesan_pesan'],
+      profilePicture: map['profile_picture'],
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'].toString())
+          : DateTime.now(),
     );
   }
-} 
+}
